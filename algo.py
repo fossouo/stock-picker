@@ -17,6 +17,8 @@ import numpy as np
 
 # Called by framework
 def initialize(context):
+    set_slippage(slippage.FixedSlippage(spread=0))
+    set_commission(commission.PerTrade(cost=0))
     context.max_num_stocks = 50
     context.days = 0
     context.quarter_days = 65
@@ -64,12 +66,12 @@ def do_screening(context):
         )
 
         # No Financials (103) and Real Estate (104) Stocks, no ADR or PINK, only USA
-        .filter(fundamentals.asset_classification.morningstar_sector_code != 103)
-        .filter(fundamentals.company_reference.country_id == "USA")
-        .filter(fundamentals.asset_classification.morningstar_sector_code != 104)
-        .filter(fundamentals.share_class_reference.is_depositary_receipt == False)
-        .filter(fundamentals.share_class_reference.is_primary_share == True)
-        .filter(fundamentals.company_reference.primary_exchange_id != "OTCPK")
+        #.filter(fundamentals.asset_classification.morningstar_sector_code != 103)
+        #.filter(fundamentals.company_reference.country_id == "USA")
+        #.filter(fundamentals.asset_classification.morningstar_sector_code != 104)
+        #.filter(fundamentals.share_class_reference.is_depositary_receipt == False)
+        #.filter(fundamentals.share_class_reference.is_primary_share == True)
+        #.filter(fundamentals.company_reference.primary_exchange_id != "OTCPK")
         
         # Check for data sanity (i,e. avoid division by zero)
         .filter(fundamentals.valuation.market_cap > 0)
