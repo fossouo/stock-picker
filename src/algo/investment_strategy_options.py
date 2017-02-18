@@ -8,3 +8,4 @@ class InvestmentStrategyOptions:
         self.max_lot_size = None
         self.min_lot_size = None
         self.num_lots = None
+        self.stock_picker = None
