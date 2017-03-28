@@ -1,21 +1,35 @@
+from position_weight_target import PositionWeightTarget
+from itertools import ifilter
+
+#TODO: Ranked version of this.
+#TODO: respect min_stocks, max_stocks
+
 class StockPickerStrategy:
 	"""
 	At any given moment, this strategy should be able to give us a more-or-less
     ranked listing of what we should consider buying.
 	"""
+
     def __init__(self, quant_api):
         self.quant_api = quant_api
 
-    def pick_stocks(context, data, min_stocks, max_stocks):
-		"""
-		Pick stocks from scratch.  (Currently stores everything in context,
-        which ought not to be. Also ignores min/max)
-		"""
-        self.do_screening(context)
-        context.security_list = list(context.fundamental_df.columns.values)
-        self.compute_relative_strength(context, data)
 
-    def do_screening(self, context):
+    def pick_stocks(context, data_api, min_stocks, max_stocks):
+		"""
+		Pick stocks from scratch. Returns some PositionWeightTargets
+		"""
+        raw_stock_data = self.get_candidates()
+        chosen_symbols = self.ifilter_relative_strength(raw_stock_data, data_api)
+
+        return map(lambda s: PositionWeightTarget(s, 1), chosen_symbols)
+
+
+    def get_candidates(self):
+        """
+        Get all stocks that we can't dismiss out-of-hand, and all information
+        we need about them.  This could be better split up, but for now,
+        screens out stocks that we can't buy (because robinhood), or won't buy.
+        """
         f = self.quant_api.fundamentals
 
         fundamentals_query = self.quant_api.query(
@@ -53,6 +67,7 @@ class StockPickerStrategy:
         .filter(f.balance_sheet.cash_and_cash_equivalents > 0)
         .filter(f.balance_sheet.invested_capital != f.balance_sheet.cash_and_cash_equivalents)
 
+        #TODO: Let's move the rules out into their own logic
         .filter((f.cash_flow_statement.financing_cash_flow / f.valuation.market_cap) < 0)
         .filter((f.income_statement.operating_income / (f.balance_sheet.invested_capital - f.balance_sheet.cash_and_cash_equivalents)) > 0.20)
 
@@ -61,15 +76,16 @@ class StockPickerStrategy:
 
         .limit(self.options.max_lot_size)
 
-        fundamental_df = self.quant_api.get_fundamentals(fundamentals_query)
-
-         # Update context
-        context.stocks = [stock for stock in fundamental_df]
-        context.fundamental_df = fundamental_df
+        return self.quant_api.get_fundamentals(fundamentals_query)
 
 
-	def compute_relative_strength(self, context, data):
-        prices = data.history(context.security_list + [symbol('SPY')], 'price', 150, '1d')
+	def ifilter_relative_strength(self, raw_stock_data, data_api):
+        """
+        Given the data we have so far, filter based on relative strength.
+        returns an iterator of symbols
+        """
+        symbols = [stock.symbol for stock in raw_stock_data]
+        prices = data.history(symbols + [symbol('SPY')], 'price', 150, '1d')
         # Price % change in the last 6 months
         pct_change = (prices.ix[-130] - prices.ix[0]) / prices.ix[0]
 
@@ -77,12 +93,8 @@ class StockPickerStrategy:
         pct_change = pct_change - pct_change_spy
         if pct_change_spy != 0:
             pct_change = pct_change / abs(pct_change_spy)
-        pct_change = pct_change.drop(symbol('SPY'))
-        context.relative_strength_6m = pct_change
+        relative_strength_6m = pct_change.drop(symbol('SPY'))
 
         # Filter out stocks without data and apply the momentum criteria
         # -0.6745 is an approximation for the top three-quarters of the market
-        context.stocks = [stock for stock in context.stocks
-        	if data.can_trade(stock) and context.relative_strength_6m[stock] > -0.6745]
-
-
+        return ifilter(lambda s: data_api.can_trade(s) and relative_strength_6m[s] > -0.6745, symbols)
