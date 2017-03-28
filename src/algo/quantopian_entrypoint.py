@@ -23,6 +23,7 @@ def initialize(context):
     # These few things should end up inside the investment strategy soon.
     context.days=0
     context.target_positions={}
+    context.screened_counts={}
 
     set_slippage(slippage.FixedSlippage(spread=0))
     set_commission(commission.PerTrade(cost=0))

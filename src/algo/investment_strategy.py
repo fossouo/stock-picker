@@ -18,15 +18,13 @@ class InvestmentStrategy:
         """
         context.days += 1
 
-        if not self.quarter_passed(context):
-            return
 
-        self.do_screening(context)
-        context.security_list = list(context.fundamental_df.columns.values)
-        self.compute_relative_strength(context, data)
-        self.rebalance(context, data)
+        self.do_screening(context, data)
 
-	def do_screening(self, context):
+        if self.quarter_passed(context):
+            self.rebalance(context, data) 
+
+	def do_screening(self, context, data):
 		fundamental_df = get_fundamentals(
 			query(
 				fundamentals.asset_classification.morningstar_sector_code,
@@ -71,10 +69,26 @@ class InvestmentStrategy:
 			
 			.limit(self.options.max_lot_size)
 		)
-	   
-		 # Update context
-		context.stocks = [stock for stock in fundamental_df]
+
 		context.fundamental_df = fundamental_df
+        context.security_list = list(fundamental_df.columns.values)
+
+        self.compute_relative_strength(context, data)
+	   
+		# Filter out stocks without data and apply the momentum criteria
+		# -0.6745 is an approximation for the top three-quarters of the market
+		passed_screening = [stock for stock in fundamental_df
+						  if data.can_trade(stock) and context.relative_strength_6m[stock] > -0.6745]
+
+        new_stocks = set()
+        for stock in passed_screening:
+            count = context.screened_counts.get(stock, 0)
+            if count == 0:
+                new_stocks.add(stock)
+            context.screened_counts[stock] = count + 1
+
+        symbols = (stock.symbol for stock in passed_screening)
+        # log.info("Today's picks: %s (%d new)" % (", ".join(symbols), len(new_stocks)))
 		
 		
 	def rebalance(self, context, data):
@@ -86,23 +100,25 @@ class InvestmentStrategy:
 		# Exit all positions before starting new ones
 		context.target_positions = {}
 
-		# Filter out stocks without data and apply the momentum criteria
-		# -0.6745 is an approximation for the top three-quarters of the market
-		context.stocks = [stock for stock in context.stocks
-						  if data.can_trade(stock) and context.relative_strength_6m[stock] > -0.6745]
-	   
-		if len(context.stocks) == 0:
+		if len(context.screened_counts) == 0:
 			log.info("No Stocks to buy")
 			return
+
+        to_buy = context.screened_counts.keys()
+        symbol_to_count = {}
+        for stock in to_buy:
+            symbol_to_count[stock.symbol] = context.screened_counts[stock]
+
+        log.info(str(symbol_to_count))
+
+
 	   
-		division = min(1, 1.0/len(context.stocks))
+		division = min(1, 1.0/len(to_buy))
 		total_value = context.portfolio.portfolio_value
 		value_per_division = total_value * division
 
-		log.info("Current Value: %0.f Targeting position of $%0.f for each of %s (%d stocks)" % (total_value, value_per_division, ', '.join(stock.symbol for stock in context.stocks), len(context.stocks)))
-		
 		# buy all stocks equally
-		for stock in context.stocks:
+		for stock in to_buy:
 			if data.can_trade(stock):
 				stock_price = data.current(stock, "price")
 				number_shares = math.floor(value_per_division / stock_price)
@@ -112,6 +128,9 @@ class InvestmentStrategy:
 				
 		# track how many positions we're holding
 		record(num_positions = len(context.target_positions))
+
+        # clear the stock counters
+        context.screened_counts = {}
 		
 	# Actually places orders, trying to get us where we want to be
 	def reconcile_target_positions(self, context, data):
