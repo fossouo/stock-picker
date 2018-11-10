@@ -1,5 +1,0 @@
-The source for the algorithm lives in src/algo.  It can be built by running 
-
-`python scripts/construct.py`
-
-which will generate a file `stage/construction/algo.py`.  This file can be dropped in as a quantopian algorithm.
