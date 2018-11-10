@@ -1,4 +1,4 @@
-This stock picking algorithm was in effect for myself and a friend (with a fairly small amount of cash) from April 2017 to September 2018, at which point a regulatory side effect of my new employement made it difficult to continue without disproportionate pain.  We ran the algorithm quarterly via Quantopian, examined the output, and made corresponding stock picks on Robinhood.  In our first (really only) year, we beat the S&P 500, which was a fun feeling.  
+This stock picking algorithm was in effect for myself and a friend (with a fairly small amount of cash) from April 2017 to September 2018, at which point a regulatory side effect of my new employement made it difficult to continue without disproportionate pain.  We ran the algorithm quarterly via [Quantopian](https://quantopian.com), examined the output, and made corresponding stock picks on [Robinhood](https://robinhood.com).  In our first (really only) year, we beat the S&P 500, which was a fun feeling.  
 
 It's based on strategies outlined in Patrick O'Shaughnessy's __Millenial Money: How Young Investors Can Build a Fortune__.  
 
