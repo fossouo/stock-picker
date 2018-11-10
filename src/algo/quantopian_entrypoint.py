@@ -1,3 +1,4 @@
+from quantopian.algorithm import attach_pipeline, pipeline_output
 from investment_strategy import InvestmentStrategy
 from investment_strategy_options import InvestmentStrategyOptions
 
@@ -15,10 +16,13 @@ def initialize(context):
     """
 
     options = InvestmentStrategyOptions()
-    options.max_lot_size = 20
+    options.max_lot_size = 10
     options.min_lot_size = 10
     options.num_lots = 4
     context.strategy = InvestmentStrategy(options)
+    
+    pipeline = context.strategy.make_pipeline()
+    attach_pipeline(pipeline, 'fivefactors')
 
     # These few things should end up inside the investment strategy soon.
     context.days=0
@@ -30,6 +34,7 @@ def initialize(context):
     schedule_function(morning_action,
         date_rules.every_day(),
         time_rules.market_open(hours=0, minutes = 1))
+
 
 def before_trading_start(context, data):
     context.strategy.before_trading_start(context,data)
